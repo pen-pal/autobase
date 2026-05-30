@@ -2,6 +2,17 @@
 - name: Make sure handlers are flushed immediately
   ansible.builtin.meta: flush_handlers
 
+# Merge user-supplied 'postgresql_parameters_extra' into 'postgresql_parameters'
+# (by 'option') so a single overridden option does not require copying the whole
+# default list into the inventory. See issue #1496.
+- name: "Merge postgresql_parameters with postgresql_parameters_extra"
+  ansible.builtin.set_fact:
+    postgresql_parameters: >-
+      {{ postgresql_parameters
+         | community.general.lists_mergeby(postgresql_parameters_extra, 'option') }}
+  when: postgresql_parameters_extra | default([]) | length > 0
+  tags: always
+
 # pip install
 - ansible.builtin.import_tasks: pip.yml
   when:
