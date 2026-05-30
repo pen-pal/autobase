@@ -1,0 +1,104 @@
+---
+# 🚀 Exercise the postgresql_parameters_extra merge expression used by the
+# patroni role (issue #1496).
+# 🎯 Assert that the lists_mergeby('option') merge replaces matching defaults,
+# appends new options, and is a no-op when no extras are supplied.
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Baseline default list
+  run_once: true
+  delegate_to: localhost
+  ansible.builtin.set_fact:
+    parameters_extra_test_base:
+      - { option: "max_connections", value: "1000" }
+      - { option: "work_mem", value: "64MB" }
+      - { option: "shared_buffers", value: "1GB" }
+
+# ===============================================
+# 💻 Case 1: no extras -> base unchanged
+# ===============================================
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Merge with empty extras
+  run_once: true
+  delegate_to: localhost
+  ansible.builtin.set_fact:
+    parameters_extra_test_empty: >-
+      {{ parameters_extra_test_base
+         | community.general.lists_mergeby([], 'option') }}
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Validate empty merge is no-op
+  run_once: true
+  ansible.builtin.assert:
+    that:
+      - parameters_extra_test_empty | length == 3
+      - (parameters_extra_test_empty | selectattr('option', 'eq', 'work_mem') | first).value == "64MB"
+    fail_msg: "Empty extras must not change the base list."
+    success_msg: "Empty extras is a no-op."
+
+# ===============================================
+# 💻 Case 2: matching option replaces the default value
+# ===============================================
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Merge with override
+  run_once: true
+  delegate_to: localhost
+  ansible.builtin.set_fact:
+    parameters_extra_test_override: >-
+      {{ parameters_extra_test_base
+         | community.general.lists_mergeby([{'option': 'work_mem', 'value': '128MB'}], 'option') }}
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Validate override
+  run_once: true
+  ansible.builtin.assert:
+    that:
+      - parameters_extra_test_override | length == 3
+      - (parameters_extra_test_override | selectattr('option', 'eq', 'work_mem') | first).value == "128MB"
+      - (parameters_extra_test_override | selectattr('option', 'eq', 'max_connections') | first).value == "1000"
+    fail_msg: "Matching option must replace the default value, others must stay."
+    success_msg: "Matching option replaces default; other options unchanged."
+
+# ===============================================
+# 💻 Case 3: new option is appended
+# ===============================================
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Merge with append
+  run_once: true
+  delegate_to: localhost
+  ansible.builtin.set_fact:
+    parameters_extra_test_append: >-
+      {{ parameters_extra_test_base
+         | community.general.lists_mergeby([{'option': 'log_min_duration_statement', 'value': '500ms'}], 'option') }}
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Validate append
+  run_once: true
+  ansible.builtin.assert:
+    that:
+      - parameters_extra_test_append | length == 4
+      - (parameters_extra_test_append | selectattr('option', 'eq', 'log_min_duration_statement') | first).value == "500ms"
+    fail_msg: "Non-matching option must be appended."
+    success_msg: "Non-matching option appended (#1496)."
+
+# ===============================================
+# 💻 Case 4: combined override + append
+# ===============================================
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Merge with override + append
+  run_once: true
+  delegate_to: localhost
+  ansible.builtin.set_fact:
+    parameters_extra_test_combined: >-
+      {{ parameters_extra_test_base
+         | community.general.lists_mergeby([
+             {'option': 'work_mem', 'value': '256MB'},
+             {'option': 'lock_timeout', 'value': '10s'}
+           ], 'option') }}
+
+- name: Molecule.tests.roles.patroni.variables.parameters_extra | Validate combined
+  run_once: true
+  ansible.builtin.assert:
+    that:
+      - parameters_extra_test_combined | length == 4
+      - (parameters_extra_test_combined | selectattr('option', 'eq', 'work_mem') | first).value == "256MB"
+      - (parameters_extra_test_combined | selectattr('option', 'eq', 'lock_timeout') | first).value == "10s"
+      - (parameters_extra_test_combined | selectattr('option', 'eq', 'shared_buffers') | first).value == "1GB"
+    fail_msg: "Combined override+append failed."
+    success_msg: "Override + append work together (#1496)."
