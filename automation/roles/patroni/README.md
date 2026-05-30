@@ -178,11 +178,24 @@ patroni_slots:
 | `postgresql_data_checksums`                | `true`                                                                                                                                                                                                   | Enables data checksums during initdb.                                        |
 | `postgresql_password_encryption_algorithm` | "`scram-sha-256`"                                                                                                                                                                                        | Default auth method in generated pg_hba.                                     |
 | `postgresql_parameters`                    | [...]                                                                                                                                                                                                    | Cluster-wide parameters stored in DCS (bootstrap.dcs.postgresql.parameters). |
+| `postgresql_parameters_extra`              | `[]`                                                                                                                                                                                                     | Override / extend `postgresql_parameters` without copying the whole list. Merged by `option`: matching entries replace the default, non-matching entries are appended. |
 | `local_postgresql_parameters`              | [...]                                                                                                                                                                                                    | Host-local parameters merged under postgresql.parameters.                    |
 | `postgresql_pg_hba`                        | [...]                                                                                                                                                                                                    | Lines rendered into pg_hba.conf template.                                    |
 | `postgresql_local_replication_auth_method` | `trust`                                                                                                                                                                                                  | Authentication method for local replication connections.                     |
 | `postgresql_pg_ident`                      | `[]`                                                                                                                                                                                                     | Entries rendered into pg_ident.conf via template.                            |
 | `postgresql_restore_command`               | `""`                                                                                                                                                                                                     | If set, added under postgresql.recovery_conf.                                |
+
+### Overriding PostgreSQL parameters
+
+To change a single PostgreSQL parameter, add it to `postgresql_parameters_extra` in your inventory — no need to copy the full `postgresql_parameters` list:
+
+```yaml
+postgresql_parameters_extra:
+  - { option: "work_mem", value: "128MB" }            # overrides the default
+  - { option: "log_min_duration_statement", value: "500ms" }  # appended
+```
+
+The merge happens by `option` via `community.general.lists_mergeby` and runs in both the deploy and `config_pgcluster` paths.
 
 ## Dependencies
 
