@@ -1,4 +1,15 @@
 ---
+# Merge user-supplied 'postgresql_parameters_extra' into 'postgresql_parameters'
+# (by 'option') so the config_pgcluster path applies overrides the same way the
+# deploy_pgcluster path does. See issue #1496.
+- name: "Merge postgresql_parameters with postgresql_parameters_extra"
+  ansible.builtin.set_fact:
+    postgresql_parameters: >-
+      {{ postgresql_parameters
+         | community.general.lists_mergeby(postgresql_parameters_extra, 'option') }}
+  when: postgresql_parameters_extra | default([]) | length > 0
+  tags: always
+
 # Patroni configure
 - name: Make sure that conf directory exists
   ansible.builtin.file:
